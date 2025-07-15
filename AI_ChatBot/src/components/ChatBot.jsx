@@ -5,6 +5,40 @@ const API_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const API_KEY = "AIzaSyBUDb5uOKoavpI1CZG9kA9jdImwWchirIA";
 
+// Function to format text with markdown-like syntax
+const formatMessage = (text) => {
+  // Convert code blocks
+  const codeFormatted = text.replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-800 text-white p-3 rounded-md overflow-x-auto"><code>$1</code></pre>');
+  
+  // Convert inline code
+  const inlineCodeFormatted = codeFormatted.replace(/`([^`]+)`/g, '<code class="bg-gray-200 px-1 rounded">$1</code>');
+  
+  // Convert tables (basic support)
+  const tableFormatted = inlineCodeFormatted.replace(
+    /\|(.+?)\|/g,
+    (match) => {
+      const rows = match.split('\n').filter(row => row.trim());
+      if (rows.length < 2) return match;
+      
+      let tableHtml = '<div class="overflow-x-auto"><table class="min-w-full border">';
+      rows.forEach((row, i) => {
+        const cells = row.split('|').filter(cell => cell.trim());
+        tableHtml += '<tr class="border">';
+        cells.forEach(cell => {
+          const tag = i === 0 ? 'th' : 'td';
+          tableHtml += `<${tag} class="px-4 py-2 border">${cell.trim()}</${tag}>`;
+        });
+        tableHtml += '</tr>';
+      });
+      tableHtml += '</table></div>';
+      return tableHtml;
+    }
+  );
+  
+  // Convert newlines to <br> and preserve other HTML
+  return { __html: tableFormatted.replace(/\n/g, '<br>') };
+};
+
 export default function App() {
   const [messages, setMessages] = useState([
     { role: "ai", text: "Hello! I'm your AI assistant. How may I help you today?" },
@@ -49,10 +83,10 @@ export default function App() {
       const data = await res.json();
       const reply =
         data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "Sorry, I didn’t get that.";
+        "Sorry, I didn't get that.";
 
       const newAiMessage = { role: "ai", text: reply };
-      setMessages((prev) => [...prev, newAiMessage]);
+      setMessages((prev) => [...prev, newAiMessage]); // Fixed line
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -79,12 +113,26 @@ export default function App() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`flex items-end gap-2 max-w-sm ${
+              className={`flex items-end gap-2 ${
                 msg.role === "user" ? "flex-row-reverse" : ""
               }`}
+              style={{ maxWidth: "90%" }}
             >
-              <div className="bg-blue-200 text-black px-4 py-2 rounded-2xl">
-                {msg.text}
+              <div
+                className={`px-4 py-2 rounded-2xl ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-blue-200 text-black"
+                }`}
+              >
+                {msg.role === "ai" ? (
+                  <div
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={formatMessage(msg.text)}
+                  />
+                ) : (
+                  msg.text
+                )}
               </div>
               <div className="bg-blue-500 rounded-full p-1">
                 {msg.role === "user" ? (
